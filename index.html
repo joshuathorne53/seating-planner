@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#243c2d">
+  <title>Room Planner</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Offline seating planner</p>
+      <h1>Room Planner</h1>
+    </div>
+    <div class="topbar-actions">
+      <span id="saveStatus" class="save-status">Saved locally</span>
+      <button id="exportBtn" class="button secondary">Export backup</button>
+      <label class="button secondary file-button">
+        Import backup
+        <input id="importInput" type="file" accept=".json,application/json">
+      </label>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="rooms">Rooms</button>
+        <button class="tab" data-tab="classes">Classes</button>
+      </div>
+
+      <section id="roomsPanel" class="side-panel active">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Saved layouts</p>
+            <h2>Rooms</h2>
+          </div>
+          <button id="newRoomBtn" class="icon-button" title="New room">+</button>
+        </div>
+        <div id="roomList" class="item-list"></div>
+      </section>
+
+      <section id="classesPanel" class="side-panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Saved presets</p>
+            <h2>Class lists</h2>
+          </div>
+          <button id="newClassBtn" class="icon-button" title="New class list">+</button>
+        </div>
+        <div id="classList" class="item-list"></div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="workspace-header">
+        <div>
+          <p class="eyebrow">Current room</p>
+          <div class="editable-title">
+            <input id="roomName" aria-label="Room name" maxlength="60">
+            <button id="duplicateRoomBtn" class="button quiet">Duplicate</button>
+            <button id="deleteRoomBtn" class="button danger quiet">Delete</button>
+          </div>
+        </div>
+        <div class="room-size">
+          <label>Rows <input id="gridRows" type="number" min="4" max="30"></label>
+          <label>Columns <input id="gridCols" type="number" min="4" max="40"></label>
+          <button id="resizeGridBtn" class="button secondary">Resize</button>
+        </div>
+      </div>
+
+      <div class="toolbar" aria-label="Placement tools">
+        <button class="tool active" data-tool="select">
+          <span class="tool-symbol pointer-symbol">↖</span>
+          Select
+        </button>
+        <button class="tool" data-tool="table">
+          <span class="tool-symbol table-symbol"></span>
+          Table
+        </button>
+        <button class="tool" data-tool="chair">
+          <span class="tool-symbol chair-symbol"></span>
+          Chair
+        </button>
+        <button class="tool" data-tool="teacher">
+          <span class="tool-symbol teacher-symbol">T</span>
+          Teacher desk
+        </button>
+        <button class="tool" data-tool="door">
+          <span class="tool-symbol door-symbol"></span>
+          Door
+        </button>
+        <button class="tool" data-tool="erase">
+          <span class="tool-symbol eraser-symbol">×</span>
+          Erase
+        </button>
+        <span class="toolbar-spacer"></span>
+        <button id="printBtn" class="button quiet">Print plan</button>
+        <button id="clearSeatsBtn" class="button quiet">Clear names</button>
+        <button id="clearRoomBtn" class="button danger quiet">Clear room</button>
+      </div>
+
+      <div class="planner-layout">
+        <div class="grid-wrap">
+          <div id="roomGrid" class="room-grid" aria-label="Room layout grid"></div>
+          <p class="grid-help"><strong>Tip:</strong> Choose a tool, then click or drag on the grid. In Select mode, click a chair for its options, or choose a student first to place them manually.</p>
+        </div>
+
+        <aside class="assignment-panel">
+          <div>
+            <p class="eyebrow">Seating</p>
+            <h2>Assign students</h2>
+          </div>
+          <label class="field">
+            Class list
+            <select id="activeClassSelect"></select>
+          </label>
+          <div class="assignment-actions">
+            <button id="autoAssignBtn" class="button primary">Auto-assign seats</button>
+            <button id="shuffleBtn" class="button secondary">Try another layout</button>
+          </div>
+          <div id="assignmentMessage" class="message" hidden></div>
+          <div class="student-picker-heading">
+            <h3>Students</h3>
+            <span id="studentCount" class="count-pill">0</span>
+          </div>
+          <p class="muted small">Select a name, then click a chair to place them. Click a chair in Select mode to edit its options.</p>
+          <div id="studentPicker" class="student-picker"></div>
+          <div class="legend">
+            <span><i class="legend-dot assigned"></i> Assigned</span>
+            <span><i class="legend-dot selected"></i> Selected</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="classDialog">
+    <form id="classForm" method="dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Reusable preset</p>
+          <h2 id="classDialogTitle">Class list</h2>
+        </div>
+        <button type="button" class="icon-button close-dialog" aria-label="Close">×</button>
+      </div>
+
+      <label class="field">
+        Class name
+        <input id="classNameInput" required maxlength="60" placeholder="e.g. Year 7 Science">
+      </label>
+
+      <label class="field">
+        Student names
+        <textarea id="studentNamesInput" rows="8" placeholder="One name per line"></textarea>
+      </label>
+
+      <div class="rule-section">
+        <div class="rule-heading">
+          <div>
+            <h3>Must sit next to each other</h3>
+            <p>These students will be placed in directly adjacent chair cells.</p>
+          </div>
+          <button id="addMustNextRuleBtn" type="button" class="button secondary">Add rule</button>
+        </div>
+        <div id="mustNextRules" class="rule-list"></div>
+      </div>
+
+      <div class="rule-section">
+        <div class="rule-heading">
+          <div>
+            <h3>Must sit at the same table</h3>
+            <p>Add two or more students to each table group.</p>
+          </div>
+          <button id="addMustTableGroupBtn" type="button" class="button secondary">Add group</button>
+        </div>
+        <div id="mustTableGroups" class="rule-list"></div>
+      </div>
+
+      <div class="rule-section">
+        <div class="rule-heading">
+          <div>
+            <h3>Must not sit next to each other</h3>
+            <p>These students will not be placed in directly adjacent chair cells.</p>
+          </div>
+          <button id="addNextRuleBtn" type="button" class="button secondary">Add rule</button>
+        </div>
+        <div id="nextRules" class="rule-list"></div>
+      </div>
+
+      <div class="rule-section">
+        <div class="rule-heading">
+          <div>
+            <h3>Must not sit at the same table</h3>
+            <p>Every student in a group will be placed at a different table.</p>
+          </div>
+          <button id="addNotTableGroupBtn" type="button" class="button secondary">Add group</button>
+        </div>
+        <div id="notTableGroups" class="rule-list"></div>
+      </div>
+
+      <div class="dialog-actions">
+        <button id="deleteClassBtn" type="button" class="button danger quiet">Delete class</button>
+        <span class="dialog-spacer"></span>
+        <button type="button" class="button secondary close-dialog">Cancel</button>
+        <button type="submit" class="button primary">Save class</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="chairDialog">
+    <form id="chairForm" method="dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Selected class seat settings</p>
+          <h2>Chair options</h2>
+        </div>
+        <button type="button" class="icon-button close-chair-dialog" aria-label="Close">×</button>
+      </div>
+
+      <label class="field">
+        Chair colour
+        <input id="chairColorInput" type="color" value="#4d7891">
+      </label>
+
+      <label class="option-row">
+        <input id="chairExcludedInput" type="checkbox">
+        <span><strong>Exclude this chair</strong><small>Students will never be assigned to it.</small></span>
+      </label>
+
+      <label class="option-row">
+        <input id="chairAlwaysFilledInput" type="checkbox">
+        <span><strong>Always fill this chair</strong><small>Automatic layouts must place a student here.</small></span>
+      </label>
+
+      <label class="field">
+        Student who must sit here
+        <select id="chairFixedStudentSelect"></select>
+      </label>
+
+      <div id="chairOptionsMessage" class="message" hidden></div>
+
+      <div class="dialog-actions">
+        <button id="resetChairOptionsBtn" type="button" class="button quiet">Reset options</button>
+        <button id="clearChairStudentBtn" type="button" class="button quiet">Clear student</button>
+        <span class="dialog-spacer"></span>
+        <button type="button" class="button secondary close-chair-dialog">Cancel</button>
+        <button type="submit" class="button primary">Save chair</button>
+      </div>
+    </form>
+  </dialog>
+
+  <template id="ruleTemplate">
+    <div class="rule-row">
+      <select class="rule-student-a" aria-label="First student"></select>
+      <span>and</span>
+      <select class="rule-student-b" aria-label="Second student"></select>
+      <button type="button" class="icon-button remove-rule" title="Remove rule">×</button>
+    </div>
+  </template>
+
+  <template id="groupTemplate">
+    <div class="group-row">
+      <div class="group-student-selects"></div>
+      <div class="group-actions">
+        <button type="button" class="button secondary add-group-student">+ Student</button>
+        <button type="button" class="icon-button remove-group" title="Remove group">×</button>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
