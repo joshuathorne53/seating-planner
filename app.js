@@ -1021,37 +1021,34 @@
 
     const seats = Object.keys(room.cells).filter((key) => room.cells[key].type === "chair" && !seatSettings(room, key).excluded);
     if (seats.length < classPreset.students.length) {
-      showMessage(`This room has ${seats.length} available chairs for ${classPreset.students.length} students. Add or include ${classPreset.students.length - seats.length} more chair${classPreset.students.length - seats.length === 1 ? "" : "s"}.`);
+      showMessage("Could not assign seats. There are not enough available chairs.", "error");
       return;
     }
     if (!classPreset.students.length) {
-      showMessage("This class list has no students yet.");
+      showMessage("Could not assign seats. This class list has no students.", "error");
       return;
     }
 
     const chairProblem = validateChairRequirements(room, classPreset, seats);
     if (chairProblem) {
-      showMessage(chairProblem);
+      showMessage("Could not assign seats. Check the room setup or seating settings.", "error");
       return;
     }
 
     const layoutProblem = validateLayoutForRules(room, classPreset, seats);
     if (layoutProblem) {
-      showMessage(layoutProblem);
+      showMessage("Could not assign seats. Check the room setup or seating settings.", "error");
       return;
     }
 
     const result = solveSeating(room, classPreset, seats, reshuffle);
     if (!result) {
-      showMessage("No arrangement could satisfy every rule. Try adding space between chairs, adding tables, or changing a rule.");
+      showMessage("Could not assign seats. Check the room setup or seating settings.", "error");
       return;
     }
     activeSeatProfile(room).assignments = result.assignments;
     selectedStudent = null;
-    const genderNote = result.bestEffortGender && result.genderConflicts
-      ? ` Best effort for alternating M/F: ${result.genderConflicts} same-gender adjacent pair${result.genderConflicts === 1 ? "" : "s"}.`
-      : "";
-    showMessage(`Assigned ${classPreset.students.length} students.${genderNote}`, true);
+    showMessage(`Assigned ${classPreset.students.length} students.`, result.bestEffortGender ? "warning" : "success");
     renderGrid();
     renderStudentPicker();
     save();
@@ -1078,104 +1075,90 @@
     };
     const tableForSeat = mapSeatsToTables(room, allSeats);
     const tableSeats = groupSeatsByTable(allSeats, tableForSeat);
+    const shouldAlternateGender = Boolean(classPreset.alternateGender);
     const conflictCount = (student) =>
       classPreset.mustNextRules.filter((rule) => rule.includes(student)).length +
       classPreset.mustTableGroups.filter((rule) => rule.includes(student)).length +
       classPreset.nextRules.filter((rule) => rule.includes(student)).length +
       classPreset.notTableGroups.filter((rule) => rule.includes(student)).length +
-      (classPreset.alternateGender && studentGender(classPreset, student) ? 1 : 0);
+      (shouldAlternateGender && studentGender(classPreset, student) ? 1 : 0);
 
     students.sort((a, b) => conflictCount(b) - conflictCount(a) || a.localeCompare(b));
-    const attempts = reshuffle ? 180 : 100;
+    const attempts = shouldAlternateGender
+      ? (reshuffle ? 40 : 25)
+      : (reshuffle ? 180 : 100);
+    const startedAt = Date.now();
+    const timeLimit = shouldAlternateGender
+      ? (reshuffle ? 500 : 300)
+      : (reshuffle ? 950 : 650);
+    let bestAssignments = null;
+    let bestGenderConflicts = Infinity;
 
-    const strictSolution = runSeatingSearch(Boolean(classPreset.alternateGender), false);
-    if (strictSolution) {
-      return {
-        assignments: strictSolution,
-        bestEffortGender: false,
-        genderConflicts: countGenderAdjacencyConflicts(strictSolution, classPreset)
-      };
-    }
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      if (Date.now() - startedAt > timeLimit) break;
+      const seats = shuffle([...allSeats]).sort((a, b) => Number(requiredSeats.has(b)) - Number(requiredSeats.has(a)));
+      const order = attempt ? shuffleTies(students, conflictCount) : [...students];
+      const assignments = { ...fixedAssignments };
+      const studentSeats = Object.fromEntries(Object.entries(fixedAssignments).map(([seat, student]) => [student, seat]));
+      let steps = 0;
+      const maxSteps = shouldAlternateGender ? 20000 : 120000;
 
-    if (!classPreset.alternateGender) return null;
-
-    const bestEffortSolution = runSeatingSearch(false, true);
-    if (!bestEffortSolution) return null;
-    return {
-      assignments: bestEffortSolution,
-      bestEffortGender: true,
-      genderConflicts: countGenderAdjacencyConflicts(bestEffortSolution, classPreset)
-    };
-
-    function runSeatingSearch(enforceAlternateGender, optimizeAlternateGender) {
-      const searchRules = { ...rules, enforceAlternateGender };
-      const searchAttempts = optimizeAlternateGender ? attempts * 2 : attempts;
-      let bestAssignments = null;
-      let bestScore = Infinity;
-
-      for (let attempt = 0; attempt < searchAttempts; attempt += 1) {
-        const seats = shuffle([...allSeats]).sort((a, b) => Number(requiredSeats.has(b)) - Number(requiredSeats.has(a)));
-        const order = attempt ? shuffleTies(students, conflictCount) : [...students];
-        const assignments = { ...fixedAssignments };
-        const studentSeats = Object.fromEntries(Object.entries(fixedAssignments).map(([seat, student]) => [student, seat]));
-        let steps = 0;
-        const maxSteps = optimizeAlternateGender ? 160000 : 120000;
-
-        let fixedValid = true;
-        const checkedAssignments = {};
-        const checkedStudentSeats = {};
-        for (const [seat, student] of Object.entries(fixedAssignments)) {
-          if (!isPlacementValid(student, seat, checkedStudentSeats, checkedAssignments, searchRules, allSeats, tableForSeat, tableSeats)) {
-            fixedValid = false;
-            break;
-          }
-          checkedAssignments[seat] = student;
-          checkedStudentSeats[student] = seat;
+      let fixedValid = true;
+      const checkedAssignments = {};
+      const checkedStudentSeats = {};
+      for (const [seat, student] of Object.entries(fixedAssignments)) {
+        if (!isPlacementValid(student, seat, checkedStudentSeats, checkedAssignments, rules, allSeats, tableForSeat, tableSeats)) {
+          fixedValid = false;
+          break;
         }
-        if (!fixedValid) continue;
-
-        const initialGenderScore = optimizeAlternateGender
-          ? countGenderAdjacencyConflicts(assignments, classPreset)
-          : 0;
-
-        function place(index, genderScore) {
-          steps += 1;
-          if (steps > maxSteps) return false;
-          if (optimizeAlternateGender && genderScore >= bestScore) return false;
-          if (index === order.length) {
-            if (![...requiredSeats].every((seat) => assignments[seat])) return false;
-            if (!optimizeAlternateGender) return true;
-            bestScore = genderScore;
-            bestAssignments = { ...assignments };
-            return bestScore === 0;
-          }
-          const student = order[index];
-          const candidateSeats = optimizeAlternateGender
-            ? [...seats].sort((a, b) =>
-                genderPlacementPenalty(student, a, studentSeats, searchRules) -
-                genderPlacementPenalty(student, b, studentSeats, searchRules)
-              )
-            : seats;
-
-          for (const seat of candidateSeats) {
-            if (assignments[seat]) continue;
-            if (!isPlacementValid(student, seat, studentSeats, assignments, searchRules, allSeats, tableForSeat, tableSeats)) continue;
-            const penalty = optimizeAlternateGender ? genderPlacementPenalty(student, seat, studentSeats, searchRules) : 0;
-            assignments[seat] = student;
-            studentSeats[student] = seat;
-            if (place(index + 1, genderScore + penalty)) return true;
-            delete assignments[seat];
-            delete studentSeats[student];
-          }
-          return false;
-        }
-
-        if (place(0, initialGenderScore)) {
-          return optimizeAlternateGender ? bestAssignments : assignments;
-        }
+        checkedAssignments[seat] = student;
+        checkedStudentSeats[student] = seat;
       }
-      return bestAssignments;
+      if (!fixedValid) continue;
+
+      function place(index) {
+        steps += 1;
+        if (steps > maxSteps || Date.now() - startedAt > timeLimit) return false;
+        if (index === order.length) return [...requiredSeats].every((seat) => assignments[seat]);
+        const student = order[index];
+        const candidateSeats = shouldAlternateGender
+          ? [...seats].sort((a, b) =>
+              genderPlacementPenalty(student, a, studentSeats, rules) -
+              genderPlacementPenalty(student, b, studentSeats, rules)
+            )
+          : seats;
+
+        for (const seat of candidateSeats) {
+          if (assignments[seat]) continue;
+          if (!isPlacementValid(student, seat, studentSeats, assignments, rules, allSeats, tableForSeat, tableSeats)) continue;
+          assignments[seat] = student;
+          studentSeats[student] = seat;
+          if (place(index + 1)) return true;
+          delete assignments[seat];
+          delete studentSeats[student];
+        }
+        return false;
+      }
+
+      if (!place(0)) continue;
+      if (!shouldAlternateGender) {
+        return { assignments, bestEffortGender: false, genderConflicts: 0 };
+      }
+
+      const genderConflicts = countGenderAdjacencyConflicts(assignments, classPreset);
+      if (genderConflicts < bestGenderConflicts) {
+        bestGenderConflicts = genderConflicts;
+        bestAssignments = { ...assignments };
+      }
+      if (genderConflicts === 0) {
+        return { assignments: bestAssignments, bestEffortGender: false, genderConflicts };
+      }
     }
+
+    if (bestAssignments) {
+      return { assignments: bestAssignments, bestEffortGender: true, genderConflicts: bestGenderConflicts };
+    }
+    return null;
   }
 
   function pairSet(rules) {
@@ -1187,17 +1170,11 @@
   }
 
   function isPlacementValid(student, seat, studentSeats, assignments, rules, allSeats, tableForSeat, tableSeats) {
-    const gender = rules.enforceAlternateGender ? normalizeGender(rules.studentGenders[student]) : "";
     for (const [otherStudent, otherSeat] of Object.entries(studentSeats)) {
       const pair = pairKey(student, otherStudent);
       if (rules.notNextPairs.has(pair) && seatsAreNextToEachOther(seat, otherSeat)) return false;
       if (rules.notTablePairs.has(pair) && tableForSeat[seat] && tableForSeat[seat] === tableForSeat[otherSeat]) return false;
       if (rules.mustNextPairs.has(pair) && !seatsAreNextToEachOther(seat, otherSeat)) return false;
-      if (
-        gender &&
-        gender === normalizeGender(rules.studentGenders[otherStudent]) &&
-        seatsAreNextToEachOther(seat, otherSeat)
-      ) return false;
     }
 
     for (const pair of rules.mustNextPairs) {
@@ -1452,15 +1429,16 @@
     return [...students].sort((a, b) => score(b) - score(a) || Math.random() - 0.5);
   }
 
-  function showMessage(text, success = false) {
+  function showMessage(text, status = "error") {
     els.assignmentMessage.hidden = false;
     els.assignmentMessage.textContent = text;
-    els.assignmentMessage.classList.toggle("success", success);
+    els.assignmentMessage.classList.remove("success", "warning", "error");
+    els.assignmentMessage.classList.add(status);
   }
 
   function hideMessage() {
     els.assignmentMessage.hidden = true;
-    els.assignmentMessage.classList.remove("success");
+    els.assignmentMessage.classList.remove("success", "warning", "error");
   }
 
   function exportBackup() {
