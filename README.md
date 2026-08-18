@@ -1,30 +1,65 @@
-# Room Planner
+# Seating Planner
 
-A portable, offline room and seating planner.
+A simple classroom seating planner that runs in a web browser. It lets teachers build reusable room layouts, save class lists, set seating rules, and automatically assign students to chairs.
 
-## Run it
+## Website
 
-Open `index.html` in any modern browser. No installation or internet connection is required.
+Use the app here:
 
-The app automatically saves rooms, class lists, rules, and assignments in that browser. Use **Export backup** to make a portable JSON backup and **Import backup** to load it on another computer.
+https://joshuathorne53.github.io/seating-planner/
 
-## Features
+## What It Does
 
-- Save and duplicate multiple room layouts
-- Resize a clickable grid and place tables, chairs, teacher desks, and doors
-- Treat touching table cells as one larger table
-- Prevent chairs from belonging to two separate tables
-- Customize chair colours and exclude chairs from assignments
-- Mark chairs as always filled or fix a student to a specific chair
-- Save chair settings and seating assignments separately for each class in each room
-- Save reusable class-list presets
-- Add rules for students who cannot sit near one another
-- Create different-table groups containing two or more students
-- Add rules for students who must sit near one another
-- Treat only directly adjacent chair cells as sitting next to each other
-- Create same-table groups containing two or more students
-- Check table size and table count before assigning a class
-- Automatically assign or reshuffle seats while respecting saved rules
-- Manually place students by selecting a name and clicking a chair
-- Print the current seating plan
-# seating-planner
+- Create and save multiple room layouts
+- Place tables, chairs, teacher desks, and doors on a clickable grid
+- Save multiple class lists
+- Set seating rules, including:
+  - students who cannot sit next to each other
+  - students who cannot sit at the same table
+  - students who must sit next to each other
+  - students who must sit at the same table
+  - fixed seats for particular students
+  - chairs that should be excluded or always filled
+- Automatically assign seats while checking that the room has enough suitable tables and chairs
+- Manually move students by clicking chairs
+- Print seating plans
+- Export and import backups so plans can be moved between computers
+
+## How To Use
+
+1. Open the website link above.
+2. Create or select a room.
+3. Use the grid tools to place tables and chairs.
+4. Create or select a class list.
+5. Add students and any seating rules.
+6. Click **Auto-assign seats** to generate a seating plan.
+7. Adjust seats manually if needed.
+8. Use **Print** to print the plan, or **Export backup** to save your rooms, classes, rules, and seating plans.
+
+The app saves data in the browser you use. If you switch computers or browsers, use **Export backup** and **Import backup** to move your saved data.
+
+## Installation
+
+No installation is needed if you use the website.
+
+To run it from a computer without using the website:
+
+1. Download this repository as a ZIP file from GitHub.
+2. Unzip the folder.
+3. Open `index.html` in any modern web browser.
+
+For people using Git:
+
+```bash
+git clone https://github.com/joshuathorne53/seating-planner.git
+cd seating-planner
+open index.html
+```
+
+On Windows, double-click `index.html` instead of using the `open` command.
+
+## Notes
+
+- The app works offline after the files are on your computer.
+- It does not require a login, server, or database.
+- Saved data stays in the browser unless you export a backup.
