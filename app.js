@@ -389,7 +389,6 @@
 
     const assigned = new Set(Object.values(assignments));
     classPreset.students.forEach((student) => {
-      const gender = studentGender(classPreset, student);
       const button = document.createElement("button");
       button.className = `student-chip${student === selectedStudent ? " selected" : ""}${assigned.has(student) ? " assigned" : ""}`;
       const name = document.createElement("span");
@@ -397,13 +396,6 @@
       name.textContent = student;
       const meta = document.createElement("span");
       meta.className = "student-chip-meta";
-      if (gender) {
-        const genderPill = document.createElement("span");
-        genderPill.className = `gender-pill ${gender.toLowerCase()}`;
-        genderPill.textContent = gender;
-        genderPill.title = `Gender: ${gender}`;
-        meta.append(genderPill);
-      }
       if (assigned.has(student)) {
         const check = document.createElement("span");
         check.className = "student-chip-check";
@@ -1056,7 +1048,7 @@
     }
     activeSeatProfile(room).assignments = solution;
     selectedStudent = null;
-    showMessage(`Assigned ${classPreset.students.length} students while satisfying all saved rules.`, true);
+    showMessage(`Assigned ${classPreset.students.length} students.`, true);
     renderGrid();
     renderStudentPicker();
     save();

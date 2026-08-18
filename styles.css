@@ -336,19 +336,6 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .student-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .student-chip-meta { display: flex; align-items: center; gap: 5px; margin-left: 8px; }
 .student-chip-check { font-weight: 900; }
-.gender-pill {
-  display: inline-grid;
-  min-width: 19px;
-  height: 19px;
-  place-items: center;
-  border-radius: 10px;
-  background: #e6e9df;
-  color: var(--green);
-  font-size: 9px;
-  font-weight: 900;
-}
-.gender-pill.m { background: #dce9f1; color: #305f7a; }
-.gender-pill.f { background: #f4e0e8; color: #8a4260; }
 .count-pill { padding: 3px 7px; border-radius: 12px; background: var(--sage); color: var(--green-2); font-size: 10px; font-weight: 900; }
 .message { margin-top: 10px; padding: 9px; border: 1px solid #d8bd7c; border-radius: 6px; background: #fff2ce; color: #6f5522; font-size: 11px; line-height: 1.4; }
 .message.success { border-color: #bdd3bf; background: #e6f1e5; color: #31543a; }
