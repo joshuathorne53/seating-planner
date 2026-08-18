@@ -205,7 +205,6 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .table-symbol { border-radius: 4px; background: #b8864f; box-shadow: inset 0 0 0 2px #8b663f; }
 .chair-symbol::before { content: ""; position: absolute; inset: 4px 3px 2px; border-radius: 3px 3px 5px 5px; background: var(--blue); }
 .chair-symbol::after { content: ""; position: absolute; top: 1px; left: 4px; width: 10px; height: 5px; border-radius: 3px; background: #345e76; }
-.door-symbol { border-left: 3px solid var(--gold); border-bottom: 3px solid var(--gold); border-radius: 0 0 0 12px; }
 
 .planner-layout { display: grid; grid-template-columns: minmax(520px, 1fr) 255px; gap: 16px; align-items: start; }
 .grid-wrap, .assignment-panel { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
@@ -243,8 +242,6 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .grid-cell.table::after { content: attr(data-table); color: #fff8ea; font-size: 10px; font-weight: 900; }
 .grid-cell.teacher { border: 2px solid #345e76; background: #5c8499; color: white; font-size: 9px; font-weight: 900; text-transform: uppercase; }
 .grid-cell.teacher::after { content: "Teacher"; }
-.grid-cell.door { border: 0; background: transparent; }
-.grid-cell.door::before { content: ""; position: absolute; inset: 6px; border-left: 5px solid var(--gold); border-bottom: 5px solid var(--gold); border-radius: 0 0 0 20px; }
 .grid-cell.chair { border: 0; background: transparent; }
 .grid-cell.chair::before { content: ""; position: absolute; top: 11px; left: 11px; width: 30px; height: 24px; border-radius: 5px 5px 9px 9px; background: var(--chair-color, var(--blue)); box-shadow: 0 2px 4px rgba(29,60,76,.24); }
 .grid-cell.chair::after { content: ""; position: absolute; top: 5px; left: 13px; width: 26px; height: 10px; border-radius: 5px; background: var(--chair-dark, #365f76); }
@@ -336,7 +333,22 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .student-chip:hover { border-color: #cdd7cd; background: white; }
 .student-chip.selected { border-color: #d3a64e; background: #fff1ce; }
 .student-chip.assigned { color: var(--green-2); }
-.student-chip.assigned::after { content: "✓"; }
+.student-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.student-chip-meta { display: flex; align-items: center; gap: 5px; margin-left: 8px; }
+.student-chip-check { font-weight: 900; }
+.gender-pill {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  border-radius: 10px;
+  background: #e6e9df;
+  color: var(--green);
+  font-size: 9px;
+  font-weight: 900;
+}
+.gender-pill.m { background: #dce9f1; color: #305f7a; }
+.gender-pill.f { background: #f4e0e8; color: #8a4260; }
 .count-pill { padding: 3px 7px; border-radius: 12px; background: var(--sage); color: var(--green-2); font-size: 10px; font-weight: 900; }
 .message { margin-top: 10px; padding: 9px; border: 1px solid #d8bd7c; border-radius: 6px; background: #fff2ce; color: #6f5522; font-size: 11px; line-height: 1.4; }
 .message.success { border-color: #bdd3bf; background: #e6f1e5; color: #31543a; }
@@ -396,6 +408,13 @@ dialog form { max-height: calc(100vh - 40px); padding: 22px; overflow-y: auto; }
 .dialog-header { margin-bottom: 18px; }
 .dialog-header .icon-button { background: #edede5; color: var(--muted); }
 .dialog-header + .field { margin-bottom: 12px; }
+.student-options { margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: #f5f5ee; }
+.student-options-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+.student-gender-list { display: grid; gap: 5px; max-height: 180px; margin-top: 10px; overflow-y: auto; }
+.student-gender-list:empty::after { content: "Add student names to choose genders"; padding: 9px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); font-size: 10px; text-align: center; }
+.student-gender-row { display: grid; grid-template-columns: minmax(0, 1fr) 78px; align-items: center; gap: 8px; }
+.student-gender-name { overflow: hidden; color: var(--ink); font-size: 11px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.student-gender-row select { min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: white; font-size: 11px; }
 .rule-section { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
 .rule-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
 .rule-list { display: grid; gap: 6px; margin-top: 10px; }

@@ -11,8 +11,9 @@ https://joshuathorne53.github.io/seating-planner/
 ## What It Does
 
 - Create and save multiple room layouts
-- Place tables, chairs, teacher desks, and doors on a clickable grid
+- Place tables, chairs, and teacher desks on a clickable grid
 - Save multiple class lists
+- Add optional M/F genders to students
 - Set seating rules, including:
   - students who cannot sit next to each other
   - students who cannot sit at the same table
@@ -20,6 +21,7 @@ https://joshuathorne53.github.io/seating-planner/
   - students who must sit at the same table
   - fixed seats for particular students
   - chairs that should be excluded or always filled
+- Optionally auto-assign seats so directly adjacent chairs alternate M/F
 - Automatically assign seats while checking that the room has enough suitable tables and chairs
 - Manually move students by clicking chairs
 - Print seating plans
@@ -31,7 +33,7 @@ https://joshuathorne53.github.io/seating-planner/
 2. Create or select a room.
 3. Use the grid tools to place tables and chairs.
 4. Create or select a class list.
-5. Add students and any seating rules.
+5. Add students, optional M/F genders, and any seating rules.
 6. Click **Auto-assign seats** to generate a seating plan.
 7. Adjust seats manually if needed.
 8. Use **Print** to print the plan, or **Export backup** to save your rooms, classes, rules, and seating plans.

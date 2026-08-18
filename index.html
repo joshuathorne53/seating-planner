@@ -10,7 +10,6 @@
 <body>
   <header class="topbar">
     <div>
-      <p class="eyebrow">Offline seating planner</p>
       <h1>Room Planner</h1>
     </div>
     <div class="topbar-actions">
@@ -87,10 +86,6 @@
           <span class="tool-symbol teacher-symbol">T</span>
           Teacher desk
         </button>
-        <button class="tool" data-tool="door">
-          <span class="tool-symbol door-symbol"></span>
-          Door
-        </button>
         <button class="tool" data-tool="erase">
           <span class="tool-symbol eraser-symbol">×</span>
           Erase
@@ -153,7 +148,20 @@
 
       <label class="field">
         Student names
-        <textarea id="studentNamesInput" rows="8" placeholder="One name per line"></textarea>
+        <textarea id="studentNamesInput" rows="8" placeholder="One name per line. Optional: Alex, M or Sam, F"></textarea>
+      </label>
+
+      <div class="student-options">
+        <div class="student-options-heading">
+          <h3>Student genders</h3>
+          <p>Optional. Choose M or F for students you want included in alternating-gender seating.</p>
+        </div>
+        <div id="studentGenderList" class="student-gender-list"></div>
+      </div>
+
+      <label class="option-row">
+        <input id="alternateGenderInput" type="checkbox">
+        <span><strong>Alternate M/F when assigning</strong><small>Auto-assign will avoid placing same-gender students in directly adjacent chairs.</small></span>
       </label>
 
       <div class="rule-section">

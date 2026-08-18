@@ -4,7 +4,9 @@
   const STORAGE_KEY = "room-planner-data-v1";
   const DEFAULT_ROWS = 12;
   const DEFAULT_COLS = 16;
-  const TOOLS = new Set(["select", "table", "chair", "teacher", "door", "erase"]);
+  const CELL_TYPES = new Set(["table", "chair", "teacher"]);
+  const TOOLS = new Set(["select", "table", "chair", "teacher", "erase"]);
+  const GENDERS = new Set(["M", "F"]);
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -35,6 +37,8 @@
     classForm: $("#classForm"),
     classNameInput: $("#classNameInput"),
     studentNamesInput: $("#studentNamesInput"),
+    studentGenderList: $("#studentGenderList"),
+    alternateGenderInput: $("#alternateGenderInput"),
     mustNextRules: $("#mustNextRules"),
     mustTableGroups: $("#mustTableGroups"),
     nextRules: $("#nextRules"),
@@ -67,6 +71,8 @@
       id: uid(),
       name,
       students: [],
+      studentGenders: {},
+      alternateGender: false,
       mustNextRules: [],
       mustTableGroups: [],
       nextRules: [],
@@ -108,6 +114,10 @@
     }
     delete room.assignments;
     Object.entries(room.cells).forEach(([key, cell]) => {
+      if (!cell || !CELL_TYPES.has(cell.type)) {
+        delete room.cells[key];
+        return;
+      }
       if (cell.type !== "chair") return;
       const legacySettings = {};
       ["color", "excluded", "alwaysFilled", "fixedStudent"].forEach((property) => {
@@ -119,7 +129,34 @@
   }
 
   function normalizeClass(classPreset) {
-    classPreset.students = Array.isArray(classPreset.students) ? classPreset.students : [];
+    const rawStudents = Array.isArray(classPreset.students) ? classPreset.students : [];
+    const incomingGenders = classPreset.studentGenders && typeof classPreset.studentGenders === "object"
+      ? classPreset.studentGenders
+      : {};
+    const students = [];
+    const studentGenders = {};
+
+    rawStudents.forEach((student) => {
+      const rawName = typeof student === "string" ? student.trim() : String(student?.name || "").trim();
+      const parsed = parseStudentLine(rawName);
+      const name = parsed.name;
+      if (!name || students.includes(name)) return;
+      const rawGender = typeof student === "string"
+        ? incomingGenders[name] || incomingGenders[rawName] || parsed.gender
+        : student.gender || incomingGenders[name];
+      const gender = normalizeGender(rawGender);
+      students.push(name);
+      if (gender) studentGenders[name] = gender;
+    });
+
+    Object.entries(incomingGenders).forEach(([student, gender]) => {
+      const parsed = parseStudentLine(student);
+      if (students.includes(parsed.name) && normalizeGender(gender)) studentGenders[parsed.name] = normalizeGender(gender);
+    });
+
+    classPreset.students = students;
+    classPreset.studentGenders = studentGenders;
+    classPreset.alternateGender = Boolean(classPreset.alternateGender);
     classPreset.mustNextRules = Array.isArray(classPreset.mustNextRules) ? classPreset.mustNextRules : [];
     classPreset.mustTableGroups = Array.isArray(classPreset.mustTableGroups) ? classPreset.mustTableGroups : [];
     classPreset.nextRules = Array.isArray(classPreset.nextRules) ? classPreset.nextRules : [];
@@ -128,6 +165,24 @@
       : Array.isArray(classPreset.tableRules)
         ? classPreset.tableRules.map((rule) => [...rule])
         : [];
+  }
+
+  function parseStudentLine(line) {
+    const value = String(line || "").trim();
+    const parsed = value.match(/^(.*?)\s*(?:[,;]\s*|\s+-\s+|\(([mMfF])\)\s*$)([mMfF])?$/);
+    if (!parsed) return { name: value, gender: "" };
+    const gender = normalizeGender(parsed[2] || parsed[3]);
+    const name = parsed[1].trim();
+    return name && gender ? { name, gender } : { name: value, gender: "" };
+  }
+
+  function normalizeGender(gender) {
+    const value = String(gender || "").trim().toUpperCase();
+    return GENDERS.has(value) ? value : "";
+  }
+
+  function studentGender(classPreset, student) {
+    return normalizeGender(classPreset?.studentGenders?.[student]);
   }
 
   function clamp(value, min, max) {
@@ -214,9 +269,10 @@
     state.classes.forEach((classPreset) => {
       const button = document.createElement("button");
       button.className = "list-item";
+      const detail = `${classPreset.students.length} students${classPreset.alternateGender ? " · alternating M/F" : ""}`;
       button.innerHTML = `
         <span class="list-item-icon">≡</span>
-        <span class="list-item-copy"><strong></strong><span>${classPreset.students.length} students</span></span>
+        <span class="list-item-copy"><strong></strong><span>${detail}</span></span>
       `;
       $("strong", button).textContent = classPreset.name;
       button.addEventListener("click", () => openClassDialog(classPreset.id));
@@ -333,9 +389,29 @@
 
     const assigned = new Set(Object.values(assignments));
     classPreset.students.forEach((student) => {
+      const gender = studentGender(classPreset, student);
       const button = document.createElement("button");
       button.className = `student-chip${student === selectedStudent ? " selected" : ""}${assigned.has(student) ? " assigned" : ""}`;
-      button.textContent = student;
+      const name = document.createElement("span");
+      name.className = "student-chip-name";
+      name.textContent = student;
+      const meta = document.createElement("span");
+      meta.className = "student-chip-meta";
+      if (gender) {
+        const genderPill = document.createElement("span");
+        genderPill.className = `gender-pill ${gender.toLowerCase()}`;
+        genderPill.textContent = gender;
+        genderPill.title = `Gender: ${gender}`;
+        meta.append(genderPill);
+      }
+      if (assigned.has(student)) {
+        const check = document.createElement("span");
+        check.className = "student-chip-check";
+        check.textContent = "✓";
+        check.title = "Assigned";
+        meta.append(check);
+      }
+      button.append(name, meta);
       button.addEventListener("click", () => {
         selectedStudent = selectedStudent === student ? null : student;
         setTool("select");
@@ -491,7 +567,7 @@
         delete profile.assignments[key];
         delete profile.chairSettings[key];
       });
-    } else if (TOOLS.has(activeTool)) {
+    } else if (CELL_TYPES.has(activeTool)) {
       room.cells[key] = { type: activeTool };
       if (activeTool !== "chair") {
         Object.values(room.classSeatProfiles).forEach((profile) => {
@@ -564,7 +640,7 @@
   }
 
   function clearRoom() {
-    if (!confirm("Remove every table, chair, desk, door, and student name from this room?")) return;
+    if (!confirm("Remove every table, chair, desk, and student name from this room?")) return;
     const room = activeRoom();
     room.cells = {};
     room.classSeatProfiles = {};
@@ -596,7 +672,7 @@
       classPreset.students.forEach((student) => {
         const option = document.createElement("option");
         option.value = student;
-        option.textContent = student;
+        option.textContent = studentOptionLabel(classPreset, student);
         option.selected = settings.fixedStudent === student;
         els.chairFixedStudentSelect.append(option);
       });
@@ -680,7 +756,9 @@
     els.classDialogTitle.textContent = classId ? "Edit class list" : "New class list";
     els.classNameInput.value = classPreset.name;
     els.studentNamesInput.value = classPreset.students.join("\n");
+    els.alternateGenderInput.checked = Boolean(classPreset.alternateGender);
     els.deleteClassBtn.hidden = !classId;
+    renderStudentGenderList(classPreset.students, classPreset.studentGenders);
     renderRules(els.mustNextRules, classPreset.mustNextRules, classPreset.students);
     renderGroups(els.mustTableGroups, classPreset.mustTableGroups, classPreset.students);
     renderRules(els.nextRules, classPreset.nextRules, classPreset.students);
@@ -690,7 +768,70 @@
   }
 
   function getDialogStudents() {
-    return [...new Set(els.studentNamesInput.value.split("\n").map((name) => name.trim()).filter(Boolean))];
+    return getDialogStudentEntries().students;
+  }
+
+  function getDialogStudentEntries() {
+    const students = [];
+    const genders = {};
+    els.studentNamesInput.value.split("\n").forEach((line) => {
+      const parsed = parseStudentLine(line);
+      if (!parsed.name || students.includes(parsed.name)) return;
+      students.push(parsed.name);
+      if (parsed.gender) genders[parsed.name] = parsed.gender;
+    });
+    return { students, genders };
+  }
+
+  function renderStudentGenderList(students, genders = {}) {
+    els.studentGenderList.innerHTML = "";
+    students.forEach((student) => {
+      const row = document.createElement("label");
+      row.className = "student-gender-row";
+      row.dataset.student = student;
+      const name = document.createElement("span");
+      name.className = "student-gender-name";
+      name.textContent = student;
+      const select = document.createElement("select");
+      select.className = "student-gender-select";
+      select.setAttribute("aria-label", `${student} gender`);
+      [
+        ["", "Not set"],
+        ["M", "M"],
+        ["F", "F"]
+      ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        option.selected = normalizeGender(genders[student]) === value;
+        select.append(option);
+      });
+      row.append(name, select);
+      els.studentGenderList.append(row);
+    });
+  }
+
+  function visibleDialogGenderMap() {
+    const genders = {};
+    $$(".student-gender-row", els.studentGenderList).forEach((row) => {
+      const gender = normalizeGender($(".student-gender-select", row).value);
+      if (gender) genders[row.dataset.student] = gender;
+    });
+    return genders;
+  }
+
+  function readDialogGenders(students) {
+    const allowed = new Set(students);
+    const genders = {};
+    Object.entries(visibleDialogGenderMap()).forEach(([student, gender]) => {
+      if (allowed.has(student) && gender) genders[student] = gender;
+    });
+    return genders;
+  }
+
+  function studentOptionLabel(classPreset, student) {
+    const gender = studentGender(classPreset, student);
+    return gender ? `${student} (${gender})` : student;
   }
 
   function renderRules(container, rules, students) {
@@ -754,8 +895,14 @@
     });
   }
 
-  function refreshRuleOptions() {
-    const students = getDialogStudents();
+  function refreshClassStudentOptions() {
+    const visibleGenders = visibleDialogGenderMap();
+    const entries = getDialogStudentEntries();
+    renderStudentGenderList(entries.students, { ...visibleGenders, ...entries.genders });
+    refreshRuleOptions(entries.students);
+  }
+
+  function refreshRuleOptions(students = getDialogStudents()) {
     $$(".rule-row", els.classDialog).forEach((row) => {
       [$(".rule-student-a", row), $(".rule-student-b", row)].forEach((select) => {
         fillStudentOptions(select, students, select.value);
@@ -778,7 +925,8 @@
 
   function saveClassFromDialog() {
     const name = els.classNameInput.value.trim();
-    const students = getDialogStudents();
+    const entries = getDialogStudentEntries();
+    const students = entries.students;
     if (!name) return;
 
     let classPreset = state.classes.find((item) => item.id === editingClassId);
@@ -788,7 +936,9 @@
           mustNextRules: classPreset.mustNextRules,
           mustTableGroups: classPreset.mustTableGroups,
           nextRules: classPreset.nextRules,
-          notTableGroups: classPreset.notTableGroups
+          notTableGroups: classPreset.notTableGroups,
+          studentGenders: classPreset.studentGenders,
+          alternateGender: classPreset.alternateGender
         })
       : null;
     if (!classPreset) {
@@ -798,6 +948,8 @@
     }
     classPreset.name = name;
     classPreset.students = students;
+    classPreset.studentGenders = { ...entries.genders, ...readDialogGenders(students) };
+    classPreset.alternateGender = els.alternateGenderInput.checked;
     classPreset.mustNextRules = dedupeRules(readRules(els.mustNextRules));
     classPreset.mustTableGroups = dedupeGroups(readGroups(els.mustTableGroups));
     classPreset.nextRules = dedupeRules(readRules(els.nextRules));
@@ -807,7 +959,9 @@
       mustNextRules: classPreset.mustNextRules,
       mustTableGroups: classPreset.mustTableGroups,
       nextRules: classPreset.nextRules,
-      notTableGroups: classPreset.notTableGroups
+      notTableGroups: classPreset.notTableGroups,
+      studentGenders: classPreset.studentGenders,
+      alternateGender: classPreset.alternateGender
     });
 
     state.rooms.forEach((room) => {
@@ -924,7 +1078,9 @@
       mustNextPairs: pairSet(classPreset.mustNextRules),
       mustTableGroups: mergeOverlappingGroups(classPreset.mustTableGroups),
       notNextPairs: pairSet(classPreset.nextRules),
-      notTablePairs: pairSet(groupsToPairs(classPreset.notTableGroups))
+      notTablePairs: pairSet(groupsToPairs(classPreset.notTableGroups)),
+      alternateGender: Boolean(classPreset.alternateGender),
+      studentGenders: classPreset.studentGenders || {}
     };
     const tableForSeat = mapSeatsToTables(room, allSeats);
     const tableSeats = groupSeatsByTable(allSeats, tableForSeat);
@@ -932,7 +1088,8 @@
       classPreset.mustNextRules.filter((rule) => rule.includes(student)).length +
       classPreset.mustTableGroups.filter((rule) => rule.includes(student)).length +
       classPreset.nextRules.filter((rule) => rule.includes(student)).length +
-      classPreset.notTableGroups.filter((rule) => rule.includes(student)).length;
+      classPreset.notTableGroups.filter((rule) => rule.includes(student)).length +
+      (classPreset.alternateGender && studentGender(classPreset, student) ? 1 : 0);
 
     students.sort((a, b) => conflictCount(b) - conflictCount(a) || a.localeCompare(b));
     const attempts = reshuffle ? 180 : 100;
@@ -990,11 +1147,17 @@
   }
 
   function isPlacementValid(student, seat, studentSeats, assignments, rules, allSeats, tableForSeat, tableSeats) {
+    const gender = rules.alternateGender ? normalizeGender(rules.studentGenders[student]) : "";
     for (const [otherStudent, otherSeat] of Object.entries(studentSeats)) {
       const pair = pairKey(student, otherStudent);
       if (rules.notNextPairs.has(pair) && seatsAreNextToEachOther(seat, otherSeat)) return false;
       if (rules.notTablePairs.has(pair) && tableForSeat[seat] && tableForSeat[seat] === tableForSeat[otherSeat]) return false;
       if (rules.mustNextPairs.has(pair) && !seatsAreNextToEachOther(seat, otherSeat)) return false;
+      if (
+        gender &&
+        gender === normalizeGender(rules.studentGenders[otherStudent]) &&
+        seatsAreNextToEachOther(seat, otherSeat)
+      ) return false;
     }
 
     for (const pair of rules.mustNextPairs) {
@@ -1040,6 +1203,7 @@
     }
 
     const seenStudents = new Set();
+    const fixedPlacements = [];
     const allChairKeys = Object.keys(room.cells).filter((key) => room.cells[key].type === "chair");
     for (const seat of allChairKeys) {
       const settings = seatSettings(room, seat);
@@ -1055,6 +1219,20 @@
         return `${fixedStudent} is fixed to more than one chair. Change one of those chair options.`;
       }
       seenStudents.add(fixedStudent);
+      fixedPlacements.push({ seat, student: fixedStudent });
+    }
+
+    if (classPreset.alternateGender) {
+      for (let i = 0; i < fixedPlacements.length; i += 1) {
+        for (let j = i + 1; j < fixedPlacements.length; j += 1) {
+          const left = fixedPlacements[i];
+          const right = fixedPlacements[j];
+          const gender = studentGender(classPreset, left.student);
+          if (gender && gender === studentGender(classPreset, right.student) && seatsAreNextToEachOther(left.seat, right.seat)) {
+            return `${left.student} and ${right.student} are fixed to directly adjacent chairs but both are marked ${gender}.`;
+          }
+        }
+      }
     }
     return null;
   }
@@ -1066,6 +1244,16 @@
       if (notNextPairs.has(pair)) {
         const [a, b] = pair.split("\u0000");
         return `${a} and ${b} are set to both sit next to and not sit next to each other. Change one of those rules.`;
+      }
+    }
+
+    if (classPreset.alternateGender) {
+      for (const [a, b] of classPreset.mustNextRules) {
+        const genderA = studentGender(classPreset, a);
+        const genderB = studentGender(classPreset, b);
+        if (genderA && genderA === genderB) {
+          return `${a} and ${b} must sit next to each other, but both are marked ${genderA}. Turn off alternating gender or change one gender/rule.`;
+        }
       }
     }
 
@@ -1291,7 +1479,7 @@
     $("#addNextRuleBtn").addEventListener("click", () => addRuleRow(els.nextRules));
     $("#addNotTableGroupBtn").addEventListener("click", () => addGroupRow(els.notTableGroups));
     els.deleteClassBtn.addEventListener("click", deleteClass);
-    els.studentNamesInput.addEventListener("input", refreshRuleOptions);
+    els.studentNamesInput.addEventListener("input", refreshClassStudentOptions);
     els.chairExcludedInput.addEventListener("change", updateChairOptionControls);
     els.chairFixedStudentSelect.addEventListener("change", updateChairOptionControls);
     $("#resetChairOptionsBtn").addEventListener("click", resetChairOptions);
