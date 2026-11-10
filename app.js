@@ -2,8 +2,17 @@
   "use strict";
 
   const STORAGE_KEY = "room-planner-data-v1";
+  const MIN_ROWS = 4;
+  const MAX_ROWS = 30;
+  const MIN_COLS = 4;
+  const MAX_COLS = 40;
   const DEFAULT_ROWS = 12;
   const DEFAULT_COLS = 16;
+  const ROOM_SIZE_PRESETS = {
+    small: { rows: 8, cols: 10 },
+    medium: { rows: DEFAULT_ROWS, cols: DEFAULT_COLS },
+    large: { rows: 18, cols: 24 }
+  };
   const CELL_TYPES = new Set(["table", "chair", "teacher"]);
   const TOOLS = new Set(["select", "table", "chair", "teacher", "erase"]);
   const GENDERS = new Set(["M", "F"]);
@@ -28,6 +37,13 @@
     gridRows: $("#gridRows"),
     gridCols: $("#gridCols"),
     roomGrid: $("#roomGrid"),
+    newRoomDialog: $("#newRoomDialog"),
+    newRoomForm: $("#newRoomForm"),
+    newRoomNameInput: $("#newRoomNameInput"),
+    newRoomSizePreset: $("#newRoomSizePreset"),
+    customRoomSize: $("#customRoomSize"),
+    newRoomRowsInput: $("#newRoomRowsInput"),
+    newRoomColsInput: $("#newRoomColsInput"),
     activeClassSelect: $("#activeClassSelect"),
     studentPicker: $("#studentPicker"),
     studentCount: $("#studentCount"),
@@ -54,12 +70,12 @@
     chairOptionsMessage: $("#chairOptionsMessage")
   };
 
-  function newRoom(name = "New room") {
+  function newRoom(name = "New room", rows = DEFAULT_ROWS, cols = DEFAULT_COLS) {
     return {
       id: uid(),
       name,
-      rows: DEFAULT_ROWS,
-      cols: DEFAULT_COLS,
+      rows: clamp(Number(rows) || DEFAULT_ROWS, MIN_ROWS, MAX_ROWS),
+      cols: clamp(Number(cols) || DEFAULT_COLS, MIN_COLS, MAX_COLS),
       cells: {},
       classSeatProfiles: {},
       activeClassId: null
@@ -101,8 +117,8 @@
   }
 
   function normalizeRoom(room) {
-    room.rows = clamp(Number(room.rows) || DEFAULT_ROWS, 4, 30);
-    room.cols = clamp(Number(room.cols) || DEFAULT_COLS, 4, 40);
+    room.rows = clamp(Number(room.rows) || DEFAULT_ROWS, MIN_ROWS, MAX_ROWS);
+    room.cols = clamp(Number(room.cols) || DEFAULT_COLS, MIN_COLS, MAX_COLS);
     room.cells = room.cells && typeof room.cells === "object" ? room.cells : {};
     room.classSeatProfiles = room.classSeatProfiles && typeof room.classSeatProfiles === "object" ? room.classSeatProfiles : {};
     room.activeClassId = room.activeClassId || null;
@@ -286,6 +302,18 @@
     els.gridRows.value = room.rows;
     els.gridCols.value = room.cols;
     $("#deleteRoomBtn").disabled = state.rooms.length === 1;
+    $$(".grid-edge-button").forEach((button) => {
+      const action = button.dataset.gridAction;
+      if (action.startsWith("add-")) {
+        button.disabled = action === "add-top" || action === "add-bottom"
+          ? room.rows >= MAX_ROWS
+          : room.cols >= MAX_COLS;
+      } else {
+        button.disabled = action === "remove-top" || action === "remove-bottom"
+          ? room.rows <= MIN_ROWS
+          : room.cols <= MIN_COLS;
+      }
+    });
   }
 
   function renderClassSelect() {
@@ -579,32 +607,126 @@
     $$(".tool").forEach((button) => button.classList.toggle("active", button.dataset.tool === tool));
   }
 
+  function remapCoordinateObject(source, rowOffset, colOffset, rows, cols, allowedKeys = null) {
+    const result = {};
+    Object.entries(source || {}).forEach(([key, value]) => {
+      const [row, col] = parseCellKey(key);
+      const nextRow = row + rowOffset;
+      const nextCol = col + colOffset;
+      if (nextRow < 0 || nextCol < 0 || nextRow >= rows || nextCol >= cols) return;
+      const nextKey = cellKey(nextRow, nextCol);
+      if (allowedKeys && !allowedKeys.has(nextKey)) return;
+      result[nextKey] = value;
+    });
+    return result;
+  }
+
+  function remapRoomGrid(room, rows, cols, rowOffset = 0, colOffset = 0) {
+    const nextRows = clamp(rows, MIN_ROWS, MAX_ROWS);
+    const nextCols = clamp(cols, MIN_COLS, MAX_COLS);
+    const nextCells = remapCoordinateObject(room.cells, rowOffset, colOffset, nextRows, nextCols);
+    const chairKeys = new Set(Object.keys(nextCells).filter((key) => nextCells[key].type === "chair"));
+
+    Object.values(room.classSeatProfiles).forEach((profile) => {
+      profile.assignments = remapCoordinateObject(profile.assignments, rowOffset, colOffset, nextRows, nextCols, chairKeys);
+      profile.chairSettings = remapCoordinateObject(profile.chairSettings, rowOffset, colOffset, nextRows, nextCols, chairKeys);
+    });
+
+    room.rows = nextRows;
+    room.cols = nextCols;
+    room.cells = nextCells;
+  }
+
   function resizeRoom() {
     const room = activeRoom();
-    const rows = clamp(Number(els.gridRows.value) || room.rows, 4, 30);
-    const cols = clamp(Number(els.gridCols.value) || room.cols, 4, 40);
-    room.rows = rows;
-    room.cols = cols;
-
-    Object.keys(room.cells).forEach((key) => {
-      const [row, col] = parseCellKey(key);
-      if (row >= rows || col >= cols) {
-        delete room.cells[key];
-        Object.values(room.classSeatProfiles).forEach((profile) => {
-          delete profile.assignments[key];
-          delete profile.chairSettings[key];
-        });
-      }
-    });
+    const rows = clamp(Number(els.gridRows.value) || room.rows, MIN_ROWS, MAX_ROWS);
+    const cols = clamp(Number(els.gridCols.value) || room.cols, MIN_COLS, MAX_COLS);
+    remapRoomGrid(room, rows, cols);
     renderAll();
     save();
   }
 
-  function addRoom() {
-    const room = newRoom(`Room ${state.rooms.length + 1}`);
+  function edgeHasContent(room, action) {
+    return Object.keys(room.cells).some((key) => {
+      const [row, col] = parseCellKey(key);
+      if (action === "remove-top") return row === 0;
+      if (action === "remove-bottom") return row === room.rows - 1;
+      if (action === "remove-left") return col === 0;
+      return action === "remove-right" && col === room.cols - 1;
+    });
+  }
+
+  function changeGridEdge(action) {
+    const room = activeRoom();
+    let rows = room.rows;
+    let cols = room.cols;
+    let rowOffset = 0;
+    let colOffset = 0;
+
+    if (action === "add-top" && rows < MAX_ROWS) {
+      rows += 1;
+      rowOffset = 1;
+    } else if (action === "add-bottom" && rows < MAX_ROWS) {
+      rows += 1;
+    } else if (action === "add-left" && cols < MAX_COLS) {
+      cols += 1;
+      colOffset = 1;
+    } else if (action === "add-right" && cols < MAX_COLS) {
+      cols += 1;
+    } else if (action === "remove-top" && rows > MIN_ROWS) {
+      rows -= 1;
+      rowOffset = -1;
+    } else if (action === "remove-bottom" && rows > MIN_ROWS) {
+      rows -= 1;
+    } else if (action === "remove-left" && cols > MIN_COLS) {
+      cols -= 1;
+      colOffset = -1;
+    } else if (action === "remove-right" && cols > MIN_COLS) {
+      cols -= 1;
+    } else {
+      return;
+    }
+
+    if (action.startsWith("remove-") && edgeHasContent(room, action)) {
+      const edge = action.replace("remove-", "");
+      if (!confirm(`Remove the ${edge} ${edge === "top" || edge === "bottom" ? "row" : "column"} and everything placed in it?`)) return;
+    }
+
+    remapRoomGrid(room, rows, cols, rowOffset, colOffset);
+    editingChairKey = null;
+    hideMessage();
+    renderAll();
+    save();
+  }
+
+  function updateNewRoomSizeControls() {
+    const preset = els.newRoomSizePreset.value;
+    els.customRoomSize.hidden = preset !== "custom";
+    if (ROOM_SIZE_PRESETS[preset]) {
+      els.newRoomRowsInput.value = ROOM_SIZE_PRESETS[preset].rows;
+      els.newRoomColsInput.value = ROOM_SIZE_PRESETS[preset].cols;
+    }
+  }
+
+  function openNewRoomDialog() {
+    els.newRoomNameInput.value = `Room ${state.rooms.length + 1}`;
+    els.newRoomSizePreset.value = "medium";
+    updateNewRoomSizeControls();
+    els.newRoomDialog.showModal();
+    setTimeout(() => els.newRoomNameInput.focus(), 0);
+  }
+
+  function createRoomFromDialog() {
+    const preset = els.newRoomSizePreset.value;
+    const size = ROOM_SIZE_PRESETS[preset] || {
+      rows: clamp(Number(els.newRoomRowsInput.value) || DEFAULT_ROWS, MIN_ROWS, MAX_ROWS),
+      cols: clamp(Number(els.newRoomColsInput.value) || DEFAULT_COLS, MIN_COLS, MAX_COLS)
+    };
+    const room = newRoom(els.newRoomNameInput.value.trim() || `Room ${state.rooms.length + 1}`, size.rows, size.cols);
     state.rooms.push(room);
     state.activeRoomId = room.id;
     selectedStudent = null;
+    hideMessage();
     renderAll();
     save();
   }
@@ -1484,8 +1606,10 @@
     $$(".tool").forEach((button) => button.addEventListener("click", () => setTool(button.dataset.tool)));
     $$(".close-dialog").forEach((button) => button.addEventListener("click", () => els.classDialog.close()));
     $$(".close-chair-dialog").forEach((button) => button.addEventListener("click", () => els.chairDialog.close()));
+    $$(".close-new-room-dialog").forEach((button) => button.addEventListener("click", () => els.newRoomDialog.close()));
+    $$(".grid-edge-button").forEach((button) => button.addEventListener("click", () => changeGridEdge(button.dataset.gridAction)));
 
-    $("#newRoomBtn").addEventListener("click", addRoom);
+    $("#newRoomBtn").addEventListener("click", openNewRoomDialog);
     $("#duplicateRoomBtn").addEventListener("click", duplicateRoom);
     $("#deleteRoomBtn").addEventListener("click", deleteRoom);
     $("#resizeGridBtn").addEventListener("click", resizeRoom);
@@ -1498,6 +1622,12 @@
     $("#addNotTableGroupBtn").addEventListener("click", () => addGroupRow(els.notTableGroups));
     els.deleteClassBtn.addEventListener("click", deleteClass);
     els.studentNamesInput.addEventListener("input", refreshClassStudentOptions);
+    els.newRoomSizePreset.addEventListener("change", updateNewRoomSizeControls);
+    els.newRoomForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      createRoomFromDialog();
+      els.newRoomDialog.close();
+    });
     els.chairExcludedInput.addEventListener("change", updateChairOptionControls);
     els.chairFixedStudentSelect.addEventListener("change", updateChairOptionControls);
     $("#resetChairOptionsBtn").addEventListener("click", resetChairOptions);

@@ -98,7 +98,29 @@
 
       <div class="planner-layout">
         <div class="grid-wrap">
-          <div id="roomGrid" class="room-grid" aria-label="Room layout grid"></div>
+          <div class="grid-stage">
+            <div class="grid-edge-controls grid-edge-top">
+              <span>Top</span>
+              <button type="button" class="grid-edge-button" data-grid-action="add-top" title="Add row to top" aria-label="Add row to top">+</button>
+              <button type="button" class="grid-edge-button remove" data-grid-action="remove-top" title="Remove top row" aria-label="Remove top row">−</button>
+            </div>
+            <div class="grid-edge-controls grid-edge-left">
+              <span>Left</span>
+              <button type="button" class="grid-edge-button" data-grid-action="add-left" title="Add column to left" aria-label="Add column to left">+</button>
+              <button type="button" class="grid-edge-button remove" data-grid-action="remove-left" title="Remove left column" aria-label="Remove left column">−</button>
+            </div>
+            <div id="roomGrid" class="room-grid" aria-label="Room layout grid"></div>
+            <div class="grid-edge-controls grid-edge-right">
+              <span>Right</span>
+              <button type="button" class="grid-edge-button" data-grid-action="add-right" title="Add column to right" aria-label="Add column to right">+</button>
+              <button type="button" class="grid-edge-button remove" data-grid-action="remove-right" title="Remove right column" aria-label="Remove right column">−</button>
+            </div>
+            <div class="grid-edge-controls grid-edge-bottom">
+              <span>Bottom</span>
+              <button type="button" class="grid-edge-button" data-grid-action="add-bottom" title="Add row to bottom" aria-label="Add row to bottom">+</button>
+              <button type="button" class="grid-edge-button remove" data-grid-action="remove-bottom" title="Remove bottom row" aria-label="Remove bottom row">−</button>
+            </div>
+          </div>
           <p class="grid-help"><strong>Tip:</strong> Choose a tool, then click or drag on the grid. In Select mode, click a chair for its options, or choose a student first to place them manually.</p>
         </div>
 
@@ -130,6 +152,50 @@
       </div>
     </section>
   </main>
+
+  <dialog id="newRoomDialog">
+    <form id="newRoomForm" method="dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">Room setup</p>
+          <h2>Create a room</h2>
+        </div>
+        <button type="button" class="icon-button close-new-room-dialog" aria-label="Close">×</button>
+      </div>
+
+      <label class="field">
+        Room name
+        <input id="newRoomNameInput" required maxlength="60" placeholder="e.g. Science room">
+      </label>
+
+      <label class="field">
+        Room size
+        <select id="newRoomSizePreset">
+          <option value="small">Small — 8 rows × 10 columns</option>
+          <option value="medium" selected>Medium — 12 rows × 16 columns</option>
+          <option value="large">Large — 18 rows × 24 columns</option>
+          <option value="custom">Custom</option>
+        </select>
+      </label>
+
+      <div id="customRoomSize" class="custom-room-size" hidden>
+        <label class="field">
+          Rows
+          <input id="newRoomRowsInput" type="number" min="4" max="30" value="12">
+        </label>
+        <label class="field">
+          Columns
+          <input id="newRoomColsInput" type="number" min="4" max="40" value="16">
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <span class="dialog-spacer"></span>
+        <button type="button" class="button secondary close-new-room-dialog">Cancel</button>
+        <button type="submit" class="button primary">Create room</button>
+      </div>
+    </form>
+  </dialog>
 
   <dialog id="classDialog">
     <form id="classForm" method="dialog">

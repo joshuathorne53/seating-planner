@@ -210,8 +210,57 @@ h3 { margin-bottom: 0; font-size: 14px; }
 .grid-wrap, .assignment-panel { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
 .grid-wrap { min-width: 0; padding: 18px; overflow: auto; }
 
+.grid-stage {
+  display: grid;
+  grid-template-areas:
+    ". top ."
+    "left grid right"
+    ". bottom .";
+  grid-template-columns: 46px max-content 46px;
+  grid-template-rows: 42px max-content 42px;
+  align-items: center;
+  width: max-content;
+}
+
+.grid-edge-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.grid-edge-controls span { margin-right: 2px; }
+.grid-edge-top { grid-area: top; }
+.grid-edge-bottom { grid-area: bottom; }
+.grid-edge-left { grid-area: left; flex-direction: column; }
+.grid-edge-right { grid-area: right; flex-direction: column; }
+.grid-edge-left span, .grid-edge-right span { margin: 0 0 2px; }
+.grid-edge-button {
+  display: inline-grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #b9c9bb;
+  border-radius: 50%;
+  background: var(--green);
+  color: white;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+.grid-edge-button:hover { background: var(--green-2); }
+.grid-edge-button.remove { border-color: #d7b8b4; background: #f3e5e2; color: var(--red); }
+.grid-edge-button.remove:hover { background: #ead2ce; }
+.grid-edge-button:disabled { cursor: not-allowed; opacity: .32; }
+
 .room-grid {
   --cols: 12;
+  grid-area: grid;
   display: grid;
   grid-template-columns: repeat(var(--cols), 52px);
   gap: 3px;
@@ -397,6 +446,8 @@ dialog form { max-height: calc(100vh - 40px); padding: 22px; overflow-y: auto; }
 .dialog-header { margin-bottom: 18px; }
 .dialog-header .icon-button { background: #edede5; color: var(--muted); }
 .dialog-header + .field { margin-bottom: 12px; }
+.custom-room-size { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.custom-room-size[hidden] { display: none; }
 .student-options { margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 7px; background: #f5f5ee; }
 .student-options-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
 .student-gender-list { display: grid; gap: 5px; max-height: 180px; margin-top: 10px; overflow-y: auto; }
@@ -442,6 +493,8 @@ dialog form { max-height: calc(100vh - 40px); padding: 22px; overflow-y: auto; }
   .workspace-header { display: block; margin-bottom: 12px; }
   .editable-title input { width: 100%; padding: 0; font-size: 22px; }
   .grid-wrap { padding: 0; overflow: visible; border: 0; box-shadow: none; }
+  .grid-stage { display: block; }
+  .grid-edge-controls { display: none !important; }
   .room-grid { grid-template-columns: repeat(var(--cols), 34px); gap: 2px; padding: 6px; }
   .grid-cell { width: 34px; height: 46px; }
   .grid-cell.chair::before { top: 8px; left: 7px; width: 20px; height: 18px; }

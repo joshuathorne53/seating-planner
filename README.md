@@ -11,6 +11,8 @@ https://joshuathorne53.github.io/seating-planner/
 ## What It Does
 
 - Create and save multiple room layouts
+- Choose a small, medium, large, or custom grid when creating a room
+- Add or remove rows and columns from any edge of a room
 - Place tables, chairs, and teacher desks on a clickable grid
 - Save multiple class lists
 - Add optional M/F genders to students
