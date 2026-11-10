@@ -309,6 +309,19 @@
       </label>
 
       <label class="field">
+        Fill priority
+        <select id="chairPriorityInput">
+          <option value="">No priority</option>
+          <option value="1">1 - Fill first</option>
+          <option value="2">2 - High priority</option>
+          <option value="3">3 - Medium priority</option>
+          <option value="4">4 - Low priority</option>
+          <option value="5">5 - Fill last</option>
+        </select>
+        <small>Auto-assign prefers priority 1 chairs, then 2 through 5.</small>
+      </label>
+
+      <label class="field">
         Student who must sit here
         <select id="chairFixedStudentSelect"></select>
       </label>

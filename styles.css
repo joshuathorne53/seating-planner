@@ -357,6 +357,28 @@ h3 { margin-bottom: 0; font-size: 14px; }
 }
 .grid-cell.chair.fixed-chair .chair-badge { background: #69478f; }
 .grid-cell.chair.excluded-chair .chair-badge { background: var(--red); }
+.grid-cell.chair .chair-priority-badge {
+  position: absolute;
+  z-index: 3;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 50%;
+  background: #2d6849;
+  color: white;
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  pointer-events: none;
+}
+.grid-cell.chair .chair-priority-badge.priority-2 { background: #4d7891; }
+.grid-cell.chair .chair-priority-badge.priority-3 { background: #8c6b2c; }
+.grid-cell.chair .chair-priority-badge.priority-4 { background: #a45f35; }
+.grid-cell.chair .chair-priority-badge.priority-5 { background: #8c4d4d; }
 .grid-cell.chair.selected-target::before { outline: 4px solid rgba(231,184,92,.55); outline-offset: 2px; }
 .grid-help { margin: 12px 0 0; color: var(--muted); font-size: 11px; }
 

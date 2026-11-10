@@ -66,6 +66,7 @@
     chairColorInput: $("#chairColorInput"),
     chairExcludedInput: $("#chairExcludedInput"),
     chairAlwaysFilledInput: $("#chairAlwaysFilledInput"),
+    chairPriorityInput: $("#chairPriorityInput"),
     chairFixedStudentSelect: $("#chairFixedStudentSelect"),
     chairOptionsMessage: $("#chairOptionsMessage")
   };
@@ -136,7 +137,7 @@
       }
       if (cell.type !== "chair") return;
       const legacySettings = {};
-      ["color", "excluded", "alwaysFilled", "fixedStudent"].forEach((property) => {
+      ["color", "excluded", "alwaysFilled", "fixedStudent", "priority"].forEach((property) => {
         if (cell[property] !== undefined && cell[property] !== null && cell[property] !== false) legacySettings[property] = cell[property];
         delete cell[property];
       });
@@ -197,6 +198,11 @@
     return GENDERS.has(value) ? value : "";
   }
 
+  function normalizeChairPriority(priority) {
+    const value = Number(priority);
+    return Number.isInteger(value) && value >= 1 && value <= 5 ? value : null;
+  }
+
   function studentGender(classPreset, student) {
     return normalizeGender(classPreset?.studentGenders?.[student]);
   }
@@ -233,6 +239,15 @@
 
   function seatSettings(room, key) {
     return activeSeatProfile(room).chairSettings[key] || {};
+  }
+
+  function chairPriority(room, key) {
+    return normalizeChairPriority(seatSettings(room, key).priority) || 6;
+  }
+
+  function compareChairFillOrder(room, requiredSeats, left, right) {
+    return Number(requiredSeats.has(right)) - Number(requiredSeats.has(left)) ||
+      chairPriority(room, left) - chairPriority(room, right);
   }
 
   let saveTimer;
@@ -365,6 +380,7 @@
           if (settings.excluded) cell.classList.add("excluded-chair");
           if (settings.alwaysFilled) cell.classList.add("required-chair");
           if (settings.fixedStudent) cell.classList.add("fixed-chair");
+          const priority = normalizeChairPriority(settings.priority);
           const nearbyTables = tableGroupsNextToChair(key, tableLayout);
           if (nearbyTables.length > 1) {
             cell.classList.add("ambiguous-chair");
@@ -376,6 +392,13 @@
             badge.textContent = settings.excluded ? "×" : settings.fixedStudent ? "P" : "!";
             badge.title = settings.excluded ? "Excluded chair" : settings.fixedStudent ? `Fixed seat: ${settings.fixedStudent}` : "Always filled";
             cell.append(badge);
+          }
+          if (priority) {
+            const priorityBadge = document.createElement("span");
+            priorityBadge.className = `chair-priority-badge priority-${priority}`;
+            priorityBadge.textContent = priority;
+            priorityBadge.title = `Fill priority ${priority}`;
+            cell.append(priorityBadge);
           }
         }
         if (data?.type === "chair" && assignments[key]) {
@@ -780,6 +803,7 @@
     els.chairColorInput.value = settings.color || "#4d7891";
     els.chairExcludedInput.checked = Boolean(settings.excluded);
     els.chairAlwaysFilledInput.checked = Boolean(settings.alwaysFilled || settings.fixedStudent);
+    els.chairPriorityInput.value = String(normalizeChairPriority(settings.priority) || "");
     els.chairFixedStudentSelect.innerHTML = `<option value="">No fixed student</option>`;
     const classPreset = activeClass();
     if (classPreset) {
@@ -802,6 +826,7 @@
     els.chairExcludedInput.disabled = !classPreset;
     els.chairFixedStudentSelect.disabled = !classPreset || els.chairExcludedInput.checked;
     els.chairAlwaysFilledInput.disabled = !classPreset || els.chairExcludedInput.checked;
+    els.chairPriorityInput.disabled = !classPreset || els.chairExcludedInput.checked;
     els.chairOptionsMessage.hidden = Boolean(classPreset);
     els.chairOptionsMessage.textContent = classPreset ? "" : "Choose a class list before fixing this chair to a student.";
     els.chairDialog.showModal();
@@ -813,9 +838,11 @@
     els.chairColorInput.disabled = !hasClass;
     els.chairExcludedInput.disabled = !hasClass;
     els.chairAlwaysFilledInput.disabled = excluded || !hasClass;
+    els.chairPriorityInput.disabled = excluded || !hasClass;
     els.chairFixedStudentSelect.disabled = excluded || !hasClass;
     if (excluded) {
       els.chairAlwaysFilledInput.checked = false;
+      els.chairPriorityInput.value = "";
       els.chairFixedStudentSelect.value = "";
     }
     if (els.chairFixedStudentSelect.value) els.chairAlwaysFilledInput.checked = true;
@@ -829,10 +856,13 @@
     const settings = {
       color: els.chairColorInput.value === "#4d7891" ? null : els.chairColorInput.value,
       excluded: els.chairExcludedInput.checked,
+      priority: els.chairExcludedInput.checked ? null : normalizeChairPriority(els.chairPriorityInput.value),
       fixedStudent: els.chairExcludedInput.checked ? null : els.chairFixedStudentSelect.value || null
     };
     settings.alwaysFilled = settings.excluded ? false : Boolean(els.chairAlwaysFilledInput.checked || settings.fixedStudent);
-    if (settings.color || settings.excluded || settings.fixedStudent || settings.alwaysFilled) profile.chairSettings[editingChairKey] = settings;
+    if (settings.color || settings.excluded || settings.fixedStudent || settings.alwaysFilled || settings.priority) {
+      profile.chairSettings[editingChairKey] = settings;
+    }
     else delete profile.chairSettings[editingChairKey];
 
     if (settings.excluded) delete profile.assignments[editingChairKey];
@@ -852,6 +882,7 @@
     els.chairColorInput.value = "#4d7891";
     els.chairExcludedInput.checked = false;
     els.chairAlwaysFilledInput.checked = false;
+    els.chairPriorityInput.value = "";
     els.chairFixedStudentSelect.value = "";
     updateChairOptionControls();
   }
@@ -1218,7 +1249,7 @@
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       if (Date.now() - startedAt > timeLimit) break;
-      const seats = shuffle([...allSeats]).sort((a, b) => Number(requiredSeats.has(b)) - Number(requiredSeats.has(a)));
+      const seats = shuffle([...allSeats]).sort((a, b) => compareChairFillOrder(room, requiredSeats, a, b));
       const order = attempt ? shuffleTies(students, conflictCount) : [...students];
       const assignments = { ...fixedAssignments };
       const studentSeats = Object.fromEntries(Object.entries(fixedAssignments).map(([seat, student]) => [student, seat]));
@@ -1244,10 +1275,12 @@
         if (index === order.length) return [...requiredSeats].every((seat) => assignments[seat]);
         const student = order[index];
         const candidateSeats = shouldAlternateGender
-          ? [...seats].sort((a, b) =>
-              genderPlacementPenalty(student, a, studentSeats, rules) -
-              genderPlacementPenalty(student, b, studentSeats, rules)
-            )
+          ? [...seats].sort((a, b) => {
+              const fillOrder = compareChairFillOrder(room, requiredSeats, a, b);
+              return fillOrder ||
+                genderPlacementPenalty(student, a, studentSeats, rules) -
+                genderPlacementPenalty(student, b, studentSeats, rules);
+            })
           : seats;
 
         for (const seat of candidateSeats) {

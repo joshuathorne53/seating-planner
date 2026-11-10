@@ -23,6 +23,7 @@ https://joshuathorne53.github.io/seating-planner/
   - students who must sit at the same table
   - fixed seats for particular students
   - chairs that should be excluded or always filled
+  - chair fill priorities from 1 (first) to 5 (last)
 - Optionally auto-assign seats so directly adjacent chairs alternate M/F where possible, with a best-effort fallback
 - Automatically assign seats while checking that the room has enough suitable tables and chairs
 - Manually move students by clicking chairs
